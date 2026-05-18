@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>艇予想 プロンプト生成</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;900&family=Share+Tech+Mono&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07070f;--bg2:#0d0d1e;--bg3:#131328;
+  --border:#1c1c36;--border2:#272748;
+  --accent:#f5a623;--accent2:#ffc85c;--accent-bg:rgba(245,166,35,.1);
+  --text:#e0e0f2;--text2:#8080a8;--text3:#404060;
+  --ok:#3ecf8e;
+  --mono:'Share Tech Mono',monospace;
+  --sans:'Noto Sans JP',sans-serif;
+}
+html{background:var(--bg)}
+body{
+  font-family:var(--sans);background:var(--bg);color:var(--text);
+  min-height:100dvh;padding-bottom:96px;
+  background-image:
+    linear-gradient(rgba(245,166,35,.015) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(245,166,35,.015) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+.hdr{
+  position:sticky;top:0;z-index:100;
+  background:rgba(7,7,15,.94);backdrop-filter:blur(12px);
+  border-bottom:1px solid var(--border);
+  padding:10px 16px;display:flex;align-items:center;justify-content:space-between;
+}
+.hdr-title{font-family:'Orbitron',monospace;font-size:19px;font-weight:900;color:var(--accent);letter-spacing:.08em}
+.hdr-sub{font-size:9px;color:var(--text3);font-family:var(--mono);letter-spacing:.13em;margin-top:1px}
+.view{display:none}
+.view.active{display:block}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:14px;margin:12px 14px}
+.card-ttl{font-size:9px;font-family:var(--mono);color:var(--accent);letter-spacing:.18em;text-transform:uppercase;margin-bottom:11px}
+label{display:block;font-size:11px;color:var(--text2);margin-bottom:4px}
+input,select{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);
+  border-radius:7px;color:var(--text);font-family:var(--mono);font-size:14px;
+  padding:8px 10px;outline:none;transition:border-color .2s;
+  -webkit-appearance:none;appearance:none;
+}
+input:focus,select:focus{border-color:var(--accent);background:#16162c}
+input::placeholder{color:var(--text3);font-size:12px}
+select{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238080a8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;padding-right:28px;
+}
+select option{background:var(--bg3);color:var(--text)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.mt8{margin-top:8px}
+.full{grid-column:1/-1}
+.btabs{display:flex;gap:5px;margin:12px 14px 0;overflow-x:auto;padding-bottom:2px}
+.btab{
+  flex:0 0 calc((100% - 5*5px) / 6);
+  padding:7px 2px;background:var(--bg2);border:1px solid var(--border);
+  border-radius:8px;cursor:pointer;text-align:center;transition:all .15s;min-width:46px;
+}
+.btab.on{background:var(--accent-bg);border-color:var(--accent)}
+.btab .bn{display:block;font-family:var(--mono);font-size:17px;font-weight:600}
+.btab .bnn{display:block;font-size:8px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 2px}
+.btab.on .bnn{color:var(--text2)}
+.btn-main{
+  display:block;width:calc(100% - 28px);margin:16px 14px;
+  padding:15px;background:var(--accent);color:#000;border:none;border-radius:10px;
+  font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:.1em;
+  cursor:pointer;transition:all .2s;
+}
+.btn-main:active{transform:scale(.98);background:var(--accent2)}
+.btn-back{background:none;border:1px solid var(--border2);border-radius:6px;color:var(--text2);font-size:12px;padding:6px 12px;cursor:pointer;font-family:var(--sans)}
+.steps{margin:12px 14px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px}
+.step{display:flex;gap:10px;align-items:flex-start;font-size:12px;color:var(--text2);line-height:1.5;padding:5px 0}
+.step-n{
+  flex:0 0 20px;height:20px;border-radius:50%;background:var(--accent-bg);
+  border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);
+  font-size:11px;display:flex;align-items:center;justify-content:center;
+}
+.prompt-box{
+  width:calc(100% - 28px);margin:0 14px;
+  background:var(--bg3);border:1px solid var(--border2);border-radius:10px;
+  color:var(--text);font-family:var(--mono);font-size:12px;line-height:1.6;
+  padding:12px;min-height:240px;resize:vertical;outline:none;
+}
+.prompt-box:focus{border-color:var(--accent)}
+.btn-copy{
+  display:block;width:calc(100% - 28px);margin:12px 14px 8px;
+  padding:14px;background:var(--accent);color:#000;border:none;border-radius:10px;
+  font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:.08em;
+  cursor:pointer;transition:all .2s;
+}
+.btn-copy:active{transform:scale(.98)}
+.btn-copy.done{background:var(--ok)}
+.btn-open{
+  display:block;width:calc(100% - 28px);margin:0 14px;
+  padding:13px;background:transparent;color:var(--accent);
+  border:1px solid var(--accent);border-radius:10px;text-align:center;
+  font-size:13px;font-weight:500;text-decoration:none;cursor:pointer;
+}
+.btn-open:active{background:var(--accent-bg)}
+.res-hdr{padding:14px 14px 0}
+.res-title{font-family:'Orbitron',monospace;font-weight:900;font-size:22px;color:var(--text);margin-top:10px}
+.res-sub{font-size:11px;color:var(--text2);margin-top:4px;font-family:var(--mono)}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--bg3);border:1px solid var(--accent);color:var(--accent);font-family:var(--mono);font-size:12px;padding:9px 20px;border-radius:100px;z-index:999;transition:transform .3s ease;white-space:nowrap}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.tip{font-size:11px;color:var(--text3);margin:0 14px 12px;line-height:1.6;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div>
+    <div class="hdr-title">艇予想</div>
+    <div class="hdr-sub">PROMPT GENERATOR</div>
+  </div>
+</div>
+
+<!-- 入力 -->
+<div id="view-input" class="view active">
+  <div class="card">
+    <div class="card-ttl">▸ レース情報</div>
+    <div class="g2">
+      <div>
+        <label>競艇場</label>
+        <select id="venue">
+          <option value="01">桐生</option><option value="02">戸田</option>
+          <option value="03">江戸川</option><option value="04">平和島</option>
+          <option value="05">多摩川</option><option value="06">浜名湖</option>
+          <option value="07">蒲郡</option><option value="08">常滑</option>
+          <option value="09">津</option><option value="10">三国</option>
+          <option value="11">びわこ</option><option value="12">住之江</option>
+          <option value="13">尼崎</option><option value="14">鳴門</option>
+          <option value="15">丸亀</option><option value="16">児島</option>
+          <option value="17">宮島</option><option value="18">徳山</option>
+          <option value="19">下関</option><option value="20">若松</option>
+          <option value="21">芦屋</option><option value="22">福岡</option>
+          <option value="23">唐津</option><option value="24" selected>大村</option>
+        </select>
+      </div>
+      <div>
+        <label>レース番号</label>
+        <select id="rno">
+          <option>1</option><option>2</option><option>3</option><option>4</option>
+          <option>5</option><option>6</option><option>7</option><option>8</option>
+          <option>9</option><option>10</option><option>11</option><option>12</option>
+        </select>
+      </div>
+    </div>
+    <div class="g3 mt8">
+      <div>
+        <label>天候</label>
+        <select id="weather"><option>晴</option><option>曇</option><option>雨</option></select>
+      </div>
+      <div>
+        <label>風向</label>
+        <select id="wdir">
+          <option>追い風</option><option>向い風</option><option>左横風</option><option>右横風</option>
+        </select>
+      </div>
+      <div>
+        <label>風速(m/s)</label>
+        <input type="number" id="wspd" placeholder="2.0" step="0.5" min="0">
+      </div>
+    </div>
+    <div class="g3 mt8">
+      <div><label>波高(cm)</label><input type="number" id="wave" placeholder="5" min="0"></div>
+      <div><label>気温(℃)</label><input type="number" id="temp" placeholder="22"></div>
+      <div><label>水温(℃)</label><input type="number" id="wtemp" placeholder="19"></div>
+    </div>
+  </div>
+
+  <p class="tip" style="margin-top:14px;margin-bottom:0">▼ 各号艇をタップして選手データを入力</p>
+  <div class="btabs" id="btabs"></div>
+
+  <div class="card">
+    <div class="card-ttl" id="bform-ttl">▸ 1号艇</div>
+    <div id="bforms"></div>
+  </div>
+
+  <button class="btn-main" onclick="generate()">▶ プロンプトを生成</button>
+  <p class="tip">入力したデータからClaude用の予想プロンプトを作成します</p>
+</div>
+
+<!-- プロンプト -->
+<div id="view-prompt" class="view">
+  <div class="res-hdr">
+    <button class="btn-back" onclick="switchView('input')">← 入力に戻る</button>
+    <div class="res-title">プロンプト完成</div>
+    <div class="res-sub" id="prompt-sub"></div>
+  </div>
+
+  <div class="steps">
+    <div class="step"><span class="step-n">1</span><span>下の「コピー」ボタンを押す</span></div>
+    <div class="step"><span class="step-n">2</span><span>「claude.aiを開く」を押す</span></div>
+    <div class="step"><span class="step-n">3</span><span>入力欄に貼り付けて送信</span></div>
+  </div>
+
+  <textarea class="prompt-box" id="prompt-box" readonly></textarea>
+
+  <button class="btn-copy" id="btn-copy" onclick="copyPrompt()">⧉ コピー</button>
+  <a class="btn-open" href="https://claude.ai/new" target="_blank" rel="noopener">claude.aiを開く ↗</a>
+  <p class="tip">プロンプトは直接編集もできます（編集後にコピーしてください）</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const BOAT_COLORS=['#ffffff','#111111','#e83030','#2060e8','#e8d820','#20b840'];
+
+const GUIDE=`■ 予想の指針
+・展示タイムは値が小さいほど速い（最重要指標）
+・STタイムは0.10〜0.17秒が理想。マイナスはフライング歴あり
+・モーター2連率40%以上は好機材、30%以下は不振
+・風速5m/s以上または波高10cm以上は荒れレース扱い（外艇の捲りに警戒）
+・1号艇インコースの有利は考慮するが過信しない
+・選手の力量差が明確なら2連単、拮抗していれば3連単を推奨
+
+■ 回答してほしい内容
+1. 推奨する舟券の種類（2連単か3連単）とその理由
+2. 買い目を1〜3点、それぞれに資金配分の％（合計100％）
+3. 各買い目の根拠を一言
+4. レース全体の総評
+5. 注意点（あれば）`;
+
+let curBoat=1;
+const boats=Array.from({length:6},()=>({name:'',rate:'',lrate:'',mrate:'',brate:'',ex:'',st:'',rec:''}));
+
+function init(){
+  buildTabs();buildForms();selectBoat(1);
+}
+
+function buildTabs(){
+  document.getElementById('btabs').innerHTML=Array.from({length:6},(_,i)=>{
+    const n=i+1,c=BOAT_COLORS[i];
+    return `<div class="btab" id="t${n}" onclick="selectBoat(${n})">
+      <span class="bn" style="color:${c};text-shadow:0 0 10px ${c}55">${n}</span>
+      <span class="bnn" id="tn${n}">──</span>
+    </div>`;
+  }).join('');
+}
+
+function buildForms(){
+  document.getElementById('bforms').innerHTML=Array.from({length:6},(_,i)=>{
+    const n=i+1;
+    return `<div id="bf${n}" class="bform" style="display:none">
+      <div class="g2">
+        <div class="full"><label>選手名</label>
+          <input type="text" placeholder="田中太郎" oninput="onName(${n},this.value)" data-b="${n}" data-f="name"></div>
+        <div><label>全国勝率</label>
+          <input type="number" placeholder="6.50" step="0.01" min="0" max="9.99" data-b="${n}" data-f="rate"></div>
+        <div><label>当地勝率</label>
+          <input type="number" placeholder="6.80" step="0.01" min="0" max="9.99" data-b="${n}" data-f="lrate"></div>
+        <div><label>モーター2連率(%)</label>
+          <input type="number" placeholder="38.5" step="0.1" min="0" max="100" data-b="${n}" data-f="mrate"></div>
+        <div><label>ボート2連率(%)</label>
+          <input type="number" placeholder="34.0" step="0.1" min="0" max="100" data-b="${n}" data-f="brate"></div>
+        <div><label>展示タイム(秒)</label>
+          <input type="number" placeholder="6.71" step="0.01" min="5" max="9" data-b="${n}" data-f="ex"></div>
+        <div><label>STタイム(秒)</label>
+          <input type="number" placeholder="0.14" step="0.01" min="-0.1" max="0.5" data-b="${n}" data-f="st"></div>
+        <div class="full"><label>今節成績（任意）</label>
+          <input type="text" placeholder="1-3-2-失" data-b="${n}" data-f="rec"></div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectBoat(n){
+  saveBoat(curBoat);curBoat=n;
+  document.querySelectorAll('.btab').forEach((el,i)=>el.classList.toggle('on',i+1===n));
+  document.querySelectorAll('.bform').forEach(el=>el.style.display='none');
+  document.getElementById(`bf${n}`).style.display='block';
+  document.getElementById('bform-ttl').textContent=`▸ ${n}号艇`;
+  loadBoat(n);
+}
+
+function saveBoat(n){
+  document.querySelectorAll(`[data-b="${n}"][data-f]`).forEach(el=>boats[n-1][el.dataset.f]=el.value);
+}
+
+function loadBoat(n){
+  const d=boats[n-1];
+  document.querySelectorAll(`[data-b="${n}"][data-f]`).forEach(el=>el.value=d[el.dataset.f]||'');
+}
+
+function onName(n,v){boats[n-1].name=v;document.getElementById(`tn${n}`).textContent=v?v.slice(0,3):'──'}
+
+function switchView(id){
+  saveBoat(curBoat);
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(`view-${id}`).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+function venueLabel(){const s=document.getElementById('venue');return s.options[s.selectedIndex].text}
+
+function buildPrompt(){
+  const venue=venueLabel();
+  const rno=document.getElementById('rno').value;
+  const wthr=document.getElementById('weather').value;
+  const wdir=document.getElementById('wdir').value;
+  const wspd=document.getElementById('wspd').value||'不明';
+  const wave=document.getElementById('wave').value||'不明';
+  const temp=document.getElementById('temp').value||'不明';
+  const wtemp=document.getElementById('wtemp').value||'不明';
+  const lines=boats.map((b,i)=>{
+    const n=i+1;
+    if(!b.name&&!b.rate)return`${n}号艇: データ未入力`;
+    return`${n}号艇: ${b.name||'─'} ｜ 全国${b.rate||'?'} 当地${b.lrate||'?'} ｜ モーター${b.mrate||'?'}% ボート${b.brate||'?'}% ｜ 展示${b.ex||'?'}秒 ST${b.st||'?'}秒 ｜ 今節:${b.rec||'─'}`;
+  });
+  return`競艇の予想をお願いします。以下のデータを分析して、最適な買い目を提案してください。
+
+${GUIDE}
+
+■ レース情報
+${venue}競艇場 第${rno}R
+天候:${wthr} ／ 風向:${wdir} ／ 風速:${wspd}m/s ／ 波高:${wave}cm ／ 気温:${temp}℃ ／ 水温:${wtemp}℃
+
+■ 出走表
+${lines.join('\n')}`;
+}
+
+function generate(){
+  saveBoat(curBoat);
+  const prompt=buildPrompt();
+  document.getElementById('prompt-box').value=prompt;
+  document.getElementById('prompt-sub').textContent=`${venueLabel()} 第${document.getElementById('rno').value}R`;
+  const btn=document.getElementById('btn-copy');
+  btn.classList.remove('done');
+  btn.textContent='⧉ コピー';
+  switchView('prompt');
+}
+
+async function copyPrompt(){
+  const ta=document.getElementById('prompt-box');
+  const text=ta.value;
+  let ok=false;
+  try{
+    await navigator.clipboard.writeText(text);
+    ok=true;
+  }catch(e){
+    ta.removeAttribute('readonly');
+    ta.select();ta.setSelectionRange(0,text.length);
+    try{ok=document.execCommand('copy');}catch(_){}
+    ta.setAttribute('readonly','');
+    window.getSelection().removeAllRanges();
+  }
+  if(ok){
+    const btn=document.getElementById('btn-copy');
+    btn.classList.add('done');
+    btn.textContent='✓ コピーしました';
+    toast('コピーしました ✓');
+  }else{
+    toast('コピー失敗。長押しで選択してください');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
